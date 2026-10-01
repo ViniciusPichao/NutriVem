@@ -2,36 +2,474 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>NutriVem</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-  <div class="container">
-    <h1>NutriVem 🥗</h1>
-    <p class="desc">Insira seus dados de glicemia para receber recomendações alimentares.</p>
-
-    <div class="form">
-      <label>Glicemia em jejum (mg/dL)</label>
-      <input type="number" id="jejum">
-
-      <label>Glicemia pós-refeição (mg/dL)</label>
-      <input type="number" id="pos">
-
-      <label>Hemoglobina glicada (%)</label>
-      <input type="number" step="0.1" id="hba1c">
-
-      <button onclick="analisar()">Analisar</button>
-    </div>
-
-    <div id="resultado" class="resultado"></div>
-
-    <p class="aviso">
-      ⚠️ Este sistema é apenas informativo e não substitui orientação médica.
-    </p>
-  </div>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NutriVem - Avaliação e Recomendações Glicêmicas</title>
   
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- html2pdf.js Bundle CDN for client-side PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-  <script src="script.js"></script>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Custom styles matching your exact original dark slate theme with polished UI depth -->
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+    }
+    
+    .card-container {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+    }
+
+    .input-field {
+      background-color: #0f172a;
+      border: 1px solid #334155;
+      color: #ffffff;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-primary {
+      background-color: #22c55e;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .btn-primary:hover {
+      background-color: #16a34a;
+      transform: translateY(-1px);
+    }
+
+    .btn-pdf {
+      background-color: #0284c7;
+      transition: all 0.2s ease-in-out;
+    }
+
+    .btn-pdf:hover {
+      background-color: #0369a1;
+      transform: translateY(-1px);
+    }
+
+    /* Print-specific layout optimization for PDF render */
+    #pdf-content {
+      color: #0f172a;
+      background-color: #ffffff;
+    }
+  </style>
+</head>
+<body class="py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-between items-center min-h-screen">
+
+  <div class="w-full max-w-4xl space-y-6">
+    
+    <!-- Application Header -->
+    <header class="text-center space-y-2">
+      <div class="inline-flex items-center justify-center p-3 bg-sky-500/10 rounded-2xl mb-2 border border-sky-500/20">
+        <i class="fa-solid font-bold text-3xl text-sky-400 fa-utensils"></i>
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-sky-400">NutriVem 🥗</h1>
+      <p class="text-slate-400 text-sm sm:text-base max-w-lg mx-auto">
+        Monitore suas taxas glicêmicas e receba um plano educativo detalhado de orientação nutricional.
+      </p>
+    </header>
+
+    <main class="card-container rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+      
+      <div class="border-b border-slate-700/60 pb-4">
+        <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+          <i class="fa-solid fa-notes-medical text-sky-400"></i> Informações dos Seus Exames
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">Preencha os valores obtidos no seu exame de sangue mais recente.</p>
+      </div>
+
+      <form id="glicemia-form" onsubmit="event.preventDefault(); analisar();" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        <!-- Input 1: Jejum -->
+        <div class="flex flex-col space-y-2">
+          <label for="jejum" class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-moon text-sky-400"></i> Glicemia Jejum
+          </label>
+          <div class="relative">
+            <input type="number" id="jejum" step="0.1" min="10" max="800" placeholder="Ex: 95" required
+              class="input-field w-full px-4 py-3 rounded-xl text-lg font-medium pr-16" />
+            <span class="absolute right-3 top-3.5 text-xs font-semibold text-slate-400">mg/dL</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Valor normal: em torno de < 100 mg/dL</span>
+        </div>
+
+        <!-- Input 2: Pós-refeição -->
+        <div class="flex flex-col space-y-2">
+          <label for="pos" class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-burger text-amber-400"></i> Pós-refeição
+          </label>
+          <div class="relative">
+            <input type="number" id="pos" step="0.1" min="10" max="800" placeholder="Ex: 130" required
+              class="input-field w-full px-4 py-3 rounded-xl text-lg font-medium pr-16" />
+            <span class="absolute right-3 top-3.5 text-xs font-semibold text-slate-400">mg/dL</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Medição 2h após a refeição</span>
+        </div>
+
+        <!-- Input 3: Hemoglobina Glicada -->
+        <div class="flex flex-col space-y-2">
+          <label for="hba1c" class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-line text-emerald-400"></i> HbA1c (%)
+          </label>
+          <div class="relative">
+            <input type="number" id="hba1c" step="0.1" min="2" max="20" placeholder="Ex: 5.4" required
+              class="input-field w-full px-4 py-3 rounded-xl text-lg font-medium pr-12" />
+            <span class="absolute right-3 top-3.5 text-xs font-semibold text-slate-400">%</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Média glicêmica de 3 meses</span>
+        </div>
+
+        <!-- Action Button -->
+        <div class="md:col-span-3 pt-2">
+          <button type="submit" class="btn-primary w-full py-3.5 px-6 rounded-xl font-bold text-slate-900 text-base shadow-lg flex items-center justify-center gap-2 cursor-pointer">
+            <i class="fa-solid fa-magnifying-glass-chart"></i> Analisar Exames e Gerar Recomendações
+          </button>
+        </div>
+      </form>
+
+      <div id="resultado-wrapper" class="hidden space-y-6 pt-4 border-t border-slate-700/60">
+        
+        <!-- Action bar for PDF -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200">Relatório da Avaliação Nutricional</h3>
+            <p class="text-xs text-slate-400">Baixe o documento completo em PDF com o plano e sugestões de refeições.</p>
+          </div>
+          <button onclick="gerarPDF()" class="btn-pdf w-full sm:w-auto py-2.5 px-5 rounded-lg text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md">
+            <i class="fa-solid fa-file-pdf text-red-400"></i> Baixar Relatório em PDF
+          </button>
+        </div>
+
+        <!-- Display Area for Result -->
+        <div id="resultado" class="bg-slate-950 p-6 sm:p-8 rounded-2xl border border-slate-800 space-y-6">
+          <!-- Filled dynamically by JavaScript -->
+        </div>
+
+      </div>
+
+      <!-- Legal Disclaimer Notice -->
+      <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-amber-400 text-lg mt-0.5"></i>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          <strong>Aviso Importante:</strong> Este sistema possui finalidade exclusivamente educativa e informativa. As recomendações geradas são gerais e baseadas em parâmetros normativos da Sociedade Brasileira de Diabetes. Elas <strong>não substituem</strong> o diagnóstico, prescrição ou acompanhamento por médicos endocrinologistas e nutricionistas.
+        </p>
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-slate-500 py-2">
+      NutriVem &copy; Projeto Acadêmico de Análise e Desenvolvimento de Sistemas.
+    </footer>
+  </div>
+
+  <div class="hidden">
+    <div id="pdf-template" class="p-8 text-slate-800 bg-white font-sans space-y-6 max-w-2xl">
+      <!-- Printable PDF content built on demand -->
+    </div>
+  </div>
+
+  <script>
+    /* Main Analysis Function */
+    function analisar() {
+      const jejumInput = document.getElementById("jejum").value;
+      const posInput = document.getElementById("pos").value;
+      const hba1cInput = document.getElementById("hba1c").value;
+
+      const resultadoWrapper = document.getElementById("resultado-wrapper");
+      const resultadoDiv = document.getElementById("resultado");
+
+      if (!jejumInput || !posInput || !hba1cInput) {
+        alert("Por favor, preencha todos os campos com valores válidos!");
+        return;
+      }
+
+      const jejum = parseFloat(jejumInput);
+      const pos = parseFloat(posInput);
+      const hba1c = parseFloat(hba1cInput);
+
+      let tipo = "";
+      let titulo = "";
+      let corBadge = "";
+      let resumoMetabolico = "";
+      let dadosDieta = {};
+
+      // Determine classification category according to clinical standards
+      if (hba1c < 5.7 && jejum < 100 && pos < 140) {
+        tipo = "normal";
+        titulo = "✅ Níveis dentro da Faixa Normal (Normoglicemia)";
+        corBadge = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+        resumoMetabolico = "Seus exames indicam boa sensibilidade à insulina e metabolismo glicêmico equilibrado. O objetivo do seu plano é a manutenção desse estado saudável com prevenção contínua.";
+        dadosDieta = dietaSaudavel();
+      } else if ((hba1c >= 5.7 && hba1c <= 6.4) || (jejum >= 100 && jejum <= 125) || (pos >= 140 && pos <= 199)) {
+        tipo = "prediabetes";
+        titulo = "⚠️ Pré-diabetes (Atenção preventiva necessária)";
+        corBadge = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+        resumoMetabolico = "Os exames mostram sinais de resistência inicial à insulina. Esta é uma janela crítica e reversível, onde adequações na alimentação evitam a progressão para o diabetes tipo 2.";
+        dadosDieta = dietaPreDiabetes();
+      } else {
+        tipo = "diabetes";
+        titulo = "🚨 Alteração Significativa (Compatível com Glicemia Elevada)";
+        corBadge = "bg-red-500/20 text-red-400 border-red-500/30";
+        resumoMetabolico = "Sua glicemia apresenta níveis acima das taxas de referência. É altamente recomendado agendar uma consulta médica/nutricional e adotar um plano de controle rigoroso imediatamente.";
+        dadosDieta = dietaDiabetes();
+      }
+
+      // Construct HTML View inside Web Page
+      resultadoDiv.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <span class="inline-block px-3 py-1.5 rounded-lg text-sm font-bold border ${corBadge}">
+            ${titulo}
+          </span>
+          <span class="text-xs text-slate-400">Data da análise: ${new Date().toLocaleDateString('pt-BR')}</span>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="text-sm font-semibold text-sky-400 uppercase tracking-wide">Visão Geral do Seu Perfil</h4>
+          <p class="text-sm text-slate-300 leading-relaxed">${resumoMetabolico}</p>
+          <div class="grid grid-cols-3 gap-2 bg-slate-900 p-3 rounded-xl border border-slate-800 text-center text-xs mt-2">
+            <div><span class="text-slate-400 block">Jejum</span><strong class="text-slate-200">${jejum} mg/dL</strong></div>
+            <div><span class="text-slate-400 block">Pós-refeição</span><strong class="text-slate-200">${pos} mg/dL</strong></div>
+            <div><span class="text-slate-400 block">HbA1c</span><strong class="text-slate-200">${hba1c}%</strong></div>
+          </div>
+        </div>
+
+        <!-- Recommended Foods -->
+        <div class="space-y-3">
+          <h4 class="text-sm font-bold text-emerald-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check"></i> Alimentos Recomendados e Benefícios
+          </h4>
+          <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300">
+            ${dadosDieta.recomendados.map(item => `<li class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex items-start gap-2"><span class="text-emerald-400">✔</span> <span>${item}</span></li>`).join('')}
+          </ul>
+        </div>
+
+        <!-- Foods to Avoid -->
+        <div class="space-y-3">
+          <h4 class="text-sm font-bold text-red-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-xmark"></i> Alimentos a Restringir ou Evitar
+          </h4>
+          <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300">
+            ${dadosDieta.evitar.map(item => `<li class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex items-start gap-2"><span class="text-red-400">✖</span> <span>${item}</span></li>`).join('')}
+          </ul>
+        </div>
+
+        <!-- Healthy Habits -->
+        <div class="space-y-3">
+          <h4 class="text-sm font-bold text-sky-400 flex items-center gap-2">
+            <i class="fa-solid fa-heart-pulse"></i> Hábitos Complementares de Saúde
+          </h4>
+          <ul class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300">
+            ${dadosDieta.habitos.map(item => `<li class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex items-start gap-2"><span class="text-sky-400">🔹</span> <span>${item}</span></li>`).join('')}
+          </ul>
+        </div>
+
+        <!-- Sample Meal Plan -->
+        <div class="space-y-3 bg-slate-900 p-4 rounded-xl border border-slate-800">
+          <h4 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+            <i class="fa-solid fa-utensils"></i> Exemplo Prático de Cardápio Diário
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+            <div><strong class="text-amber-300 block mb-1">☕ Café da Manhã:</strong> ${dadosDieta.cardapio.cafe}</div>
+            <div><strong class="text-amber-300 block mb-1">🥗 Almoço:</strong> ${dadosDieta.cardapio.almoco}</div>
+            <div><strong class="text-amber-300 block mb-1">🍎 Lanche da Tarde:</strong> ${dadosDieta.cardapio.lanche}</div>
+            <div><strong class="text-amber-300 block mb-1">Soup/Prato Jantar:</strong> ${dadosDieta.cardapio.jantar}</div>
+          </div>
+        </div>
+      `;
+
+      // Store current data in window object for PDF Generator
+      window.lastAnalysis = {
+        jejum, pos, hba1c, titulo, resumoMetabolico, dadosDieta, data: new Date().toLocaleDateString('pt-BR')
+      };
+
+      resultadoWrapper.classList.remove("hidden");
+      resultadoWrapper.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function dietaSaudavel() {
+      return {
+        recomendados: [
+          "<strong>Proteínas Magras:</strong> Frango grelhado, peixes ricos em Ômega-3 (salmão, sardinha), ovos e queijos magros.",
+          "<strong>Fibras e Grãos Integrais:</strong> Arroz integral, aveia em flocos, quinoa, linhaça e semente de chia.",
+          "<strong>Vegetais e Legumes:</strong> Brócolis, espinafre, couve, cenoura e abobrinha em abundância.",
+          "<strong>Frutas Frescas:</strong> Maçã com casca, morango, mirtilo, pera e goiaba."
+        ],
+        evitar: [
+          "<strong>Açúcar Refinado:</strong> Doces, bolos industrializados, refrigerantes e sucos de caixa.",
+          "<strong>Farinhas Brancas:</strong> Pães brancos, massas tradicionais e biscoitos recheados.",
+          "<strong>Gorduras Trans:</strong> Frituras profundas, salgadinhos de pacote e margarinas.",
+          "<strong>Ultraprocessados:</strong> Embutidos (salsicha, presunto) com excesso de sódio."
+        ],
+        habitos: [
+          "Ingerir pelo menos 2 a 2,5 litros de água limpa diariamente.",
+          "Praticar 150 minutos de atividade física aeróbica moderada por semana.",
+          "Dormir de 7 a 8 horas por noite para regular os hormônios do apetite.",
+          "Evitar longos períodos de jejum não planejado."
+        ],
+        cardapio: {
+          cafe: "Ovos mexidos com orégano + 1 fatia de pão integral + café sem açúcar.",
+          almoco: "Peito de frango grelhado + 3 colheres de arroz integral + salada verde com azeite de oliva extra virgem.",
+          lanche: "1 maçã pequena + 3 castanhas-do-pará.",
+          jantar: "Filé de peixe assado + legumes no vapor (brócolis e cenoura)."
+        }
+      };
+    }
+
+    function dietaPreDiabetes() {
+      return {
+        recomendados: [
+          "<strong>Alimentos de Baixo Índice Glicêmico:</strong> Aveia, lentilha, grão-de-bico e feijões.",
+          "<strong>Fibras Solúveis:</strong> Psyllium, chia e sementes (diminuem a absorção do açúcar no sangue).",
+          "<strong>Gorduras Boas:</strong> Abacate, azeite de oliva extra virgem, nozes e amêndoas.",
+          "<strong>Proteínas de Alta Qualidade:</strong> Ovos, peixes, peito de frango e tofu."
+        ],
+        evitar: [
+          "<strong>Bebidas Adoçadas:</strong> Refrigerantes normais, sucos concentrados e chás industrializados.",
+          "<strong>Carboidratos Simples:</strong> Tapioca isolada, pão francês, purê de batata comum.",
+          "<strong>Doces e Sobremesas:</strong> Chocolates ao leite, sorvetes e leites condensados.",
+          "<strong>Álcool em Excesso:</strong> Principalmente cervejas e drinks doces."
+        ],
+        habitos: [
+          "Caminhar por 10 a 15 minutos logo após as principais refeições do dia.",
+          "Priorizar a ingestão de fibras e proteínas no início da refeição antes dos carboidratos.",
+          "Monitorar a glicemia periodicamente conforme orientação do posto ou médico.",
+          "Gerenciar o estresse para evitar picos do hormônio cortisol."
+        ],
+        cardapio: {
+          cafe: "Panqueca de aveia com 1 ovo e canela + chá verde ou café preto.",
+          almoco: "Carne moída magra + 2 colheres de feijão + abundante salada de folhas e tomate.",
+          lanche: "Iogurte natural desnatado com 1 colher de chia e mirtilos/morangos.",
+          jantar: "Omelete recheada com espinafre e queijo branco + salada de pepino."
+        }
+      };
+    }
+
+    function dietaDiabetes() {
+      return {
+        recomendados: [
+          "<strong>Vegetais Não Estercados:</strong> Abobrinha, couve-flor, repolho, pimentão e acelga.",
+          "<strong>Proteínas Puras:</strong> Ovos cozidos, peixe grelhado, peito de peru e peito de frango.",
+          "<strong>Frutas Controladas:</strong> Frutas vermelhas, morango, abacate e limão.",
+          "<strong>Carboidratos Complexos em Pequenas Porções:</strong> Batata-doce, quinoa ou lentilha."
+        ],
+        evitar: [
+          "<strong>Açúcar de Qualquer Tipo:</strong> Açúcar cristal, mascavo, mel, melaço e doces.",
+          "<strong>Farinhas e Panificados:</strong> Pães, biscoitos, tortas, salgados e massas.",
+          "<strong>Frutas de Alto Índice Glicêmico isoladas:</strong> Melancia, uva e caqui em grande quantidade.",
+          "<strong>Comidas Prontas e Fast Food:</strong> Alimentos ricos em gordura saturada e carboidratos refinados."
+        ],
+        habitos: [
+          "Consultar um endocrinologista e nutricionista para um plano alimentar individualizado.",
+          "Acompanhar a glicemia diariamente conforme recomendação médica.",
+          "Examinar diariamente os pés e cuidar da hidratação da pele.",
+          "Manter constância no horário das refeições e tomar medicações prescritas pontualmente."
+        ],
+        cardapio: {
+          cafe: "Ovos cozidos com azeite e ervas + 1/2 abacate pequeno temperado.",
+          almoco: "Filé de salmão ou peixe grelhado + legumes grelhados (abobrinha e couve-flor) + salada verde.",
+          lanche: "Um punhado pequeno de amêndoas e nozes + chá de camomila sem açúcar.",
+          jantar: "Sopa leve de legumes com frango desfiado (sem batatas ou macarrão)."
+        }
+      };
+    }
+
+    function gerarPDF() {
+      if (!window.lastAnalysis) {
+        alert("Realize uma análise antes de gerar o PDF!");
+        return;
+      }
+
+      const data = window.lastAnalysis;
+      const element = document.getElementById("pdf-template");
+
+      // Construct clean printable layout for PDF document
+      element.innerHTML = `
+        <div style="font-family: Arial, sans-serif; color: #1e293b; padding: 10px;">
+          
+          <div style="border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h1 style="color: #0284c7; font-size: 24px; margin: 0; font-weight: bold;">NutriVem 🥗</h1>
+              <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">Relatório Orientativo de Exame Glicêmico e Nutrição</p>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #64748b;">
+              <p style="margin:0;">Data: <strong>${data.data}</strong></p>
+            </div>
+          </div>
+
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="font-size: 14px; margin: 0 0 8px 0; color: #0f172a;">Resumo dos Dados Informados:</h3>
+            <p style="font-size: 12px; margin: 2px 0;">• Glicemia em Jejum: <strong>${data.jejum} mg/dL</strong></p>
+            <p style="font-size: 12px; margin: 2px 0;">• Glicemia Pós-refeição: <strong>${data.pos} mg/dL</strong></p>
+            <p style="font-size: 12px; margin: 2px 0;">• Hemoglobina Glicada (HbA1c): <strong>${data.hba1c}%</strong></p>
+            <p style="font-size: 13px; margin: 8px 0 0 0; color: #0369a1; font-weight: bold;">Classificação: ${data.titulo}</p>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <h3 style="font-size: 13px; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 8px;">1. Parecer Educativo</h3>
+            <p style="font-size: 11px; color: #334155; leading-height: 1.5;">${data.resumoMetabolico}</p>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <h3 style="font-size: 13px; color: #16a34a; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 8px;">2. Alimentos Recomendados</h3>
+            <ul style="font-size: 11px; color: #334155; padding-left: 18px; margin: 0;">
+              ${data.dadosDieta.recomendados.map(i => `<li style="margin-bottom: 4px;">${i}</li>`).join('')}
+            </ul>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <h3 style="font-size: 13px; color: #dc2626; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 8px;">3. Alimentos a Evitar ou Restringir</h3>
+            <ul style="font-size: 11px; color: #334155; padding-left: 18px; margin: 0;">
+              ${data.dadosDieta.evitar.map(i => `<li style="margin-bottom: 4px;">${i}</li>`).join('')}
+            </ul>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <h3 style="font-size: 13px; color: #d97706; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 8px;">4. Sugestão Prática de Cardápio</h3>
+            <p style="font-size: 11px; margin: 3px 0;"><strong>Café da Manhã:</strong> ${data.dadosDieta.cardapio.cafe}</p>
+            <p style="font-size: 11px; margin: 3px 0;"><strong>Almoço:</strong> ${data.dadosDieta.cardapio.almoco}</p>
+            <p style="font-size: 11px; margin: 3px 0;"><strong>Lanche:</strong> ${data.dadosDieta.cardapio.lanche}</p>
+            <p style="font-size: 11px; margin: 3px 0;"><strong>Jantar:</strong> ${data.dadosDieta.cardapio.jantar}</p>
+          </div>
+
+          <div style="margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #94a3b8; text-align: center;">
+            Documento gerado automaticamente pelo aplicativo NutriVem. Este relatório é meramente informativo e educacional, devendo ser validado por um profissional de saúde habilitado.
+          </div>
+
+        </div>
+      `;
+
+      // Configure html2pdf options
+      const opt = {
+        margin:       [0.4, 0.4, 0.4, 0.4],
+        filename:     `NutriVem_Relatorio_${new Date().toISOString().slice(0,10)}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      // Generate and download PDF
+      html2pdf().set(opt).from(element).save();
+    }
+  </script>
 </body>
 </html>
