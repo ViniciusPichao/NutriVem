@@ -6,8 +6,6 @@
 
 ## 📌 Sobre o Projeto
 
-O **NutriVem** é um projeto acadêmico desenvolvido para a disciplina de Engenharia de Software / Projeto Integrador na **Universidade Presbiteriana Mackenzie** (FCI).
-
 A proposta da ferramenta é atuar como uma ponte entre os laudos de exames de rotina e as escolhas alimentares do dia a dia. Ao inserir as taxas de glicemia e hemoglobina glicada, o sistema realiza o enquadramento metabólico instantâneo e gera um guia nutricional educativo com foco em hábitos saudáveis e prevenção.
 
 ---
